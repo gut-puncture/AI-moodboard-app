@@ -12,55 +12,103 @@ from dotenv import load_dotenv
 
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
-FAL_AI_KEY = os.getenv("FAL_API_KEY", "")  # optional for server‑side Imagen4 call
+FAL_AI_KEY = os.getenv("FAL_KEY", "")  # Changed from FAL_API_KEY to FAL_KEY
 O3_MODEL = os.getenv("OPENAI_O3_MODEL", "o3-2025-04-16")  # default "o3"
 
 # ----------  Gradio UI callbacks ---------- #
 
-def generate_prompt(brands, visuals, extra_notes, auto_generate_image):
-    """Main gradio handler: returns a best‑in‑class prompt (and optional fal.ai image url)."""
+def generate_prompt(brands, visuals, extra_notes):
+    """Generate prompt using OpenAI without auto-generating image."""
     if not brands:
-        return ("⚠️  Please provide at least one brand.", None)
+        return "⚠️  Please provide at least one brand."
 
     # 1) Build the system+user messages for o3
     full_prompt = build_moodboard_prompt(brands, visuals, extra_notes)
 
-    # 2) Call OpenAI ChatCompletion
-    response = openai.chat.completions.create(
-        model=O3_MODEL,
-        messages=full_prompt,
-        max_completion_tokens=800,
-    )
-    moodboard_prompt = response.choices[0].message.content.strip()
+    try:
+        # 2) Call OpenAI ChatCompletion
+        response = openai.chat.completions.create(
+            model=O3_MODEL,
+            messages=full_prompt,
+            max_completion_tokens=800,
+        )
+        moodboard_prompt = response.choices[0].message.content.strip()
+        return moodboard_prompt
+    except Exception as e:
+        return f"⚠️  Error generating prompt: {str(e)}"
 
-    # 3) Optionally ask fal.ai Imagen‑4 to render
-    image_url = None
-    if auto_generate_image and FAL_AI_KEY:
-        image_url = call_falai_if_requested(moodboard_prompt, FAL_AI_KEY)
 
-    return moodboard_prompt, image_url
+def generate_image_from_prompt(prompt):
+    """Generate image from the provided prompt."""
+    if not prompt or prompt.startswith("⚠️"):
+        return None, "Please generate a valid prompt first."
+    
+    if not FAL_AI_KEY:
+        return None, "⚠️  FAL_KEY not configured. Please set the FAL_KEY secret in HuggingFace Spaces settings."
+
+    # Generate image using the prompt
+    image_url = call_falai_if_requested(prompt, FAL_AI_KEY)
+    
+    if image_url:
+        return image_url, "✅  Image generated successfully!"
+    else:
+        return None, "⚠️  Failed to generate image. Check logs for details."
 
 
 def launch():
     with gr.Blocks(title="Quiet‑Luxury Moodboard Builder") as demo:
-        gr.Markdown("# Quiet‑Luxury Footwear Moodboard Builder\nEnter brands + visual links and instantly get a perfect Imagen4 prompt.")
+        gr.Markdown("# Quiet‑Luxury Footwear Moodboard Builder\nEnter brands + visual links to get a perfect Imagen4 prompt, then optionally generate the moodboard.")
 
         with gr.Row():
-            brands_in = gr.Textbox(label="Brand names (comma‑separated)",
-                                   placeholder="Toteme, Aeyde, Koio, Margaux")
-            visuals_in = gr.Textbox(label="Optional image URLs (one per line)")
-        extra_in = gr.Textbox(label="Extra creative direction (optional)")
-        auto_flag = gr.Checkbox(label="Generate image with fal.ai (needs FAL_API_KEY)")
-        btn = gr.Button("Craft Prompt →")
+            with gr.Column():
+                brands_in = gr.Textbox(
+                    label="Brand names (comma‑separated)",
+                    placeholder="Toteme, Aeyde, Koio, Margaux",
+                    lines=2
+                )
+                visuals_in = gr.Textbox(
+                    label="Optional image URLs (one per line)",
+                    placeholder="https://example.com/image1.jpg\nhttps://example.com/image2.jpg",
+                    lines=3
+                )
+                extra_in = gr.Textbox(
+                    label="Extra creative direction (optional)",
+                    placeholder="Focus on minimalist aesthetic, neutral tones...",
+                    lines=2
+                )
+                
+                generate_btn = gr.Button("🎯 Generate Prompt", variant="primary")
+                
+        # Prompt output and editing
+        prompt_out = gr.Textbox(
+            label="AI Image Prompt (you can edit this before generating)",
+            lines=12,
+            placeholder="Generated prompt will appear here..."
+        )
+        
+        # Image generation section
+        with gr.Row():
+            generate_img_btn = gr.Button("🎨 Generate Moodboard Image", variant="secondary")
+            
+        with gr.Row():
+            img_out = gr.Image(label="Generated Moodboard", show_label=True, height=400)
+            status_out = gr.Textbox(label="Status", lines=2, interactive=False)
 
-        prompt_out = gr.Textbox(label="AI Image Prompt", lines=14)
-        img_out = gr.Image(label="Imagen‑4 Result (optional)")
-
-        btn.click(generate_prompt,
-                  inputs=[brands_in, visuals_in, extra_in, auto_flag],
-                  outputs=[prompt_out, img_out])
+        # Event handlers
+        generate_btn.click(
+            generate_prompt,
+            inputs=[brands_in, visuals_in, extra_in],
+            outputs=[prompt_out]
+        )
+        
+        generate_img_btn.click(
+            generate_image_from_prompt,
+            inputs=[prompt_out],
+            outputs=[img_out, status_out]
+        )
 
     demo.launch()
+
 
 if __name__ == "__main__":
     launch()
