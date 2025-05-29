@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 FAL_AI_KEY = os.getenv("FAL_API_KEY", "")  # optional for server‑side Imagen4 call
-O3_MODEL = os.getenv("OPENAI_O3_MODEL", "o3")  # default "o3"
+O3_MODEL = os.getenv("OPENAI_O3_MODEL", "o3-2025-04-16")  # default "o3"
 
 # ----------  Gradio UI callbacks ---------- #
 
@@ -26,13 +26,12 @@ def generate_prompt(brands, visuals, extra_notes, auto_generate_image):
     full_prompt = build_moodboard_prompt(brands, visuals, extra_notes)
 
     # 2) Call OpenAI ChatCompletion
-    response = openai.ChatCompletion.create(
+    response = openai.chat.completions.create(
         model=O3_MODEL,
         messages=full_prompt,
-        temperature=0.2,
-        max_tokens=800,
+        max_completion_tokens=800,
     )
-    moodboard_prompt = response.choices[0].message["content"].strip()
+    moodboard_prompt = response.choices[0].message.content.strip()
 
     # 3) Optionally ask fal.ai Imagen‑4 to render
     image_url = None
