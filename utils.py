@@ -37,7 +37,7 @@ def call_falai_if_requested(prompt: str, api_key: str | None):
             arguments={
                 "prompt": prompt,
                 "num_images": 1,
-                "aspect_ratio": "16:9",  # Changed from image_size to aspect_ratio
+                "aspect_ratio": "16:9",
             },
             with_logs=True,
         )
