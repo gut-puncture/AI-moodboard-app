@@ -11,8 +11,10 @@ from utils import build_moodboard_prompt, call_falai_if_requested
 from dotenv import load_dotenv
 
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
-FAL_AI_KEY = os.getenv("FAL_KEY", "")  # Changed from FAL_API_KEY to FAL_KEY
+
+# Initialize OpenAI client
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+FAL_AI_KEY = os.getenv("FAL_KEY", "")  # Consistent with env variable name
 O3_MODEL = os.getenv("OPENAI_O3_MODEL", "o3-2025-04-16")  # default "o3"
 
 # ----------  Gradio UI callbacks ---------- #
@@ -26,8 +28,8 @@ def generate_prompt(brands, visuals, extra_notes):
     full_prompt = build_moodboard_prompt(brands, visuals, extra_notes)
 
     try:
-        # 2) Call OpenAI ChatCompletion
-        response = openai.chat.completions.create(
+        # 2) Call OpenAI ChatCompletion with updated client
+        response = client.chat.completions.create(
             model=O3_MODEL,
             messages=full_prompt,
             max_completion_tokens=800,
