@@ -1,12 +1,9 @@
-### utils.py
+# utils.py
 import os
-import requests
-import textwrap
-from urllib.parse import urljoin
-
+import fal_client                      
 from prompts import SYSTEM_PROMPT, USER_TEMPLATE
 
-FAL_ENDPOINT = "https://api.fal.ai/imagen"  # example; confirm actual endpoint
+FAL_MODEL_ID = os.getenv("FAL_MODEL_ID", "fal-ai/imagen4/preview")  # Imagen-4
 
 
 def build_moodboard_prompt(brands: str, visuals: str, extra_notes: str):
@@ -21,16 +18,27 @@ def build_moodboard_prompt(brands: str, visuals: str, extra_notes: str):
         {"role": "user", "content": user_msg},
     ]
 
+def call_falai_if_requested(prompt: str, api_key: str | None):
+    """
+    Generate one image with fal.ai Imagen-4 and return its URL (or None on failure).
+    """
+    if not api_key:
+        return None
 
-def call_falai_if_requested(prompt: str, api_key: str):
-    """Calls fal.ai Imagen‑4 to generate an image; returns hosted URL or None."""
-    headers = {"Authorization": f"Key {api_key}", "Content-Type": "application/json"}
-    payload = {"prompt": prompt, "n": 1, "size": "1024x576"}
+    # Initialise the SDK (sets env inside)
+    fal.init(key=api_key, request_timeout=120)   # timeout in seconds
+
     try:
-        resp = requests.post(FAL_ENDPOINT, json=payload, headers=headers, timeout=60)
-        resp.raise_for_status()
-        data = resp.json()
-        return data.get("images", [None])[0]
+        result = fal.run(
+            FAL_MODEL_ID,
+            arguments={
+                "prompt": prompt,
+                "num_images": 1,
+                "image_size": "landscape_16_9",   # 1024×576
+            },
+        )
+        # result structure: {"images": [{"url": "..."}], ...}
+        return result["images"][0]["url"]
     except Exception as exc:
         print("[fal.ai] generation failed:", exc)
         return None
