@@ -93,7 +93,7 @@ def launch():
             generate_img_btn = gr.Button("🎨 Generate Moodboard Image", variant="secondary")
             
         with gr.Row():
-            img_out = gr.Image(label="Generated Moodboard", show_label=True, height=400)
+            img_out = gr.Image(label="Generated Moodboard", show_label=True, height=500)
             status_out = gr.Textbox(label="Status", lines=2, interactive=False)
 
         # Event handlers
